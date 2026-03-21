@@ -249,19 +249,8 @@ async function claude(prompt){
 async function wikiBdays(months,day){
   var mf='VALUES ?m {'+months.map(function(m){return'"'+m+'"^^xsd:integer';}).join(' ')+'}';
   var df=day?'FILTER(DAY(?bdate)='+day+')\n':'';
-  var q=`PREFIX wd:<http://www.wikidata.org/entity/>
-PREFIX wdt:<http://www.wikidata.org/prop/direct/>
-PREFIX xsd:<http://www.w3.org/2001/XMLSchema#>
-SELECT DISTINCT ?person ?personLabel ?bdate ?desc WHERE{
-  ?person wdt:P31 wd:Q5;wdt:P106 ?occ;wdt:P569 ?bdate.
-  VALUES ?occ{wd:Q177220 wd:Q36834 wd:Q488205 wd:Q134556 wd:Q855091 wd:Q183945 wd:Q753110 wd:Q215380}
-  BIND(MONTH(?bdate) AS ?m)
-  ${mf}
-  ${df}FILTER(YEAR(?bdate)>1850)
-  FILTER NOT EXISTS{?person wdt:P570 ?dod}
-  OPTIONAL{?person schema:description ?desc FILTER(LANG(?desc)="en")}
-  SERVICE wikibase:label{bd:serviceParam wikibase:language "en,he".}
-}ORDER BY ?m DAY(?bdate) ?personLabel LIMIT 120`;
+  var genreIds='wd:Q183504 wd:Q1640239 wd:Q205560 wd:Q208909 wd:Q9778 wd:Q11399 wd:Q9585 wd:Q182821 wd:Q1338489 wd:Q4818508 wd:Q41298 wd:Q37073 wd:Q1570894 wd:Q838795 wd:Q37029 wd:Q180377 wd:Q11366 wd:Q484641';
+  var q='PREFIX wd:<http://www.wikidata.org/entity/>\nPREFIX wdt:<http://www.wikidata.org/prop/direct/>\nPREFIX xsd:<http://www.w3.org/2001/XMLSchema#>\nSELECT DISTINCT ?person ?personLabel ?bdate ?desc WHERE{\n  ?person wdt:P31 wd:Q5;wdt:P106 ?occ;wdt:P569 ?bdate.\n  VALUES ?occ{wd:Q177220 wd:Q36834 wd:Q488205 wd:Q134556 wd:Q855091 wd:Q183945 wd:Q753110 wd:Q215380}\n  BIND(MONTH(?bdate) AS ?m)\n  '+mf+'\n  '+df+'  FILTER(YEAR(?bdate)>1900)\n  FILTER NOT EXISTS{?person wdt:P570 ?dod}\n  ?person schema:description ?desc FILTER(LANG(?desc)="en")\n  ?person wdt:P136 ?genre.\n  VALUES ?genre{'+genreIds+'}\n  SERVICE wikibase:label{bd:serviceParam wikibase:language "en,he".}\n}ORDER BY ?m DAY(?bdate) ?personLabel LIMIT 150';
   var url='https://query.wikidata.org/sparql?query='+encodeURIComponent(q)+'&format=json';
   var res=await fetch(url,{headers:{'Accept':'application/sparql-results+json','User-Agent':'MusicAnniversaries/1.0 (artemissia-pixel.github.io)'}});
   if(!res.ok)throw new Error('Wikidata '+res.status);
@@ -275,77 +264,6 @@ SELECT DISTINCT ?person ?personLabel ?bdate ?desc WHERE{
     if(!d)return null;
     return{name:name,year:d.year,month:d.month,day:d.day||1,desc:b.desc?b.desc.value:''};
   }).filter(Boolean);
-}
-
-function relP(ctx,months,th){
-  return'You are a music database. List real music releases '+ctx+' where the original release month is one of: '+months.join(',')
-    +' (any year, all eras). '+(th||'')+' Include albums, singles, AND EPs. '
-    +'Return ONLY a JSON array:[{"title":"...","artist":"...","date":"YYYY-MM-DD","type":"Album|Single|EP"}]. Use 01 for unknown day. No markdown.';
-}
-
-function procRaw(raw,filterFn,seen){
-  var out=[];
-  for(var i=0;i<raw.length;i++){
-    var r=raw[i];
-    if(!r.date||(filterFn&&!filterFn(r.date)))continue;
-    var key=(r.artist||'')+'||'+(r.title||'');
-    if(seen.has(key))continue;seen.add(key);
-    var d=parseD(r.date);if(!d)continue;
-    out.push({title:r.title,artist:r.artist||'—',year:d.year,month:d.month,day:d.day||1,type:r.type||'Release'});
-  }
-  return out;
-}
-
-function mkCard(r){
-  var at=annT(r.year),ya=T.getFullYear()-r.year,dt=new Date(T.getFullYear(),r.month-1,r.day);
-  var cc='card'+(at==='10'?' r10':at==='5'?' r5':' r1');
-  var yc=at==='10'?'cy g':at==='5'?'cy p':'cy b';
-  var al=at==='10'?'<span class="ca">⬡ יובל עגול</span>':at==='5'?'<span class="ca" style="color:var(--acc2)">◈ חצי יובל</span>':'';
-  var tw=r.type==='Album'?'album':r.type==='Single'?'song':'EP';
-  var wu='https://en.wikipedia.org/w/index.php?search='+encodeURIComponent(r.title+' '+r.artist+' '+tw)+'&ns0=1';
-  var su=wu.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-  return'<div class="'+cc+'" onclick="window.open(\''+su+'\',\'_blank\')">'
-    +'<div class="cd"><div class="cdd">'+r.day+'</div><div class="cdw">'+WD[dt.getDay()]+'</div></div>'
-    +'<div class="ci"><div class="cit">'+esc(r.title)+'</div><div class="cis">'+esc(r.artist)+' · '+r.year+'</div></div>'
-    +'<div class="cm"><div class="'+yc+'">'+ya+'Y</div>'+al+'<span class="cb">'+esc(r.type)+'</span><span class="cw">↗ wiki</span></div>'
-    +'</div>';
-}
-
-function mkBday(p){
-  var at=annT(p.year),age=T.getFullYear()-p.year,dt=new Date(T.getFullYear(),p.month-1,p.day);
-  var cc='card bday'+(at==='10'?' r10':at==='5'?' r5':'');
-  var yc=at==='10'?'cy g':at==='5'?'cy p':'cy';
-  var al=at==='10'?'<span class="ca">⬡ יובל עגול</span>':at==='5'?'<span class="ca" style="color:var(--acc2)">◈ חצי</span>':'';
-  var wu='https://en.wikipedia.org/w/index.php?search='+encodeURIComponent(p.name)+'&ns0=1';
-  var su=wu.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-  return'<div class="'+cc+'" onclick="window.open(\''+su+'\',\'_blank\')">'
-    +'<div class="cd"><div class="cdd">'+p.day+'</div><div class="cdw">'+WD[dt.getDay()]+'</div></div>'
-    +'<div class="ci"><div class="cit">'+esc(p.name)+'</div><div class="cis">'+esc(p.desc||'מוזיקאי')+'</div></div>'
-    +'<div class="cm"><div class="'+yc+'">'+age+'</div>'+al+'<span class="cb">'+p.year+'</span><span class="cbg">♪ wiki</span></div>'
-    +'</div>';
-}
-
-function renderAll(rels,bdays,prefix,flat){
-  if(!rels.length&&!bdays.length){setR(prefix,'<div class="empty">לא נמצאו תוצאות</div>');return;}
-  rels.sort(function(a,b){return annSc(a.year)-annSc(b.year)||a.month-b.month||a.day-b.day;});
-  bdays.sort(function(a,b){return annSc(a.year)-annSc(b.year)||a.month-b.month||a.day-b.day;});
-  var tot=rels.length+bdays.length;
-  var html='<div class="sechd"><span class="sect">◈ '+tot+' תוצאות</span><span class="secs">⬡ יובל עגול · ◈ חצי יובל · ↗ לחיצה = Wikipedia</span></div>';
-  if(flat){
-    if(bdays.length){html+='<div class="ghd">♪ ימי הולדת</div>';bdays.forEach(function(p){html+=mkBday(p);});}
-    if(rels.length){html+='<div class="ghd">◈ הוצאות</div>';rels.forEach(function(r){html+=mkCard(r);});}
-  } else {
-    var all=[];
-    rels.forEach(function(r){all.push({t:'r',d:r,mo:r.month,dy:r.day,sc:annSc(r.year)});});
-    bdays.forEach(function(p){all.push({t:'b',d:p,mo:p.month,dy:p.day,sc:annSc(p.year)});});
-    all.sort(function(a,b){return a.mo-b.mo||a.sc-b.sc||a.dy-b.dy;});
-    var bm={};all.forEach(function(item){if(!bm[item.mo])bm[item.mo]=[];bm[item.mo].push(item);});
-    Object.keys(bm).sort(function(a,b){return+a-+b;}).forEach(function(m){
-      html+='<div class="ghd">// '+MHE[+m-1]+'</div>';
-      bm[m].forEach(function(item){html+=item.t==='r'?mkCard(item.d):mkBday(item.d);});
-    });
-  }
-  setR(prefix,html);
 }
 
 async function doTime(){
