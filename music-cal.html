@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0a0a0a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="מוזיקה">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>ימי שנה מוזיקליים</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0a0a0a; --surface:#111; --border:#2a2a2a;
+  --accent:#e8ff00; --accent2:#ff3d6b; --text:#e0e0e0;
+  --muted:#555; --green:#00ff88; --gold:#ffd700;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Space Mono', monospace;
+  display: flex; flex-direction: column;
+  background-image: repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(255,255,255,0.012) 2px,rgba(255,255,255,0.012) 4px);
+}
+
+/* ── HEADER ── */
+.app-header {
+  padding: calc(var(--safe-top) + 10px) 16px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0;
+}
+.app-title {
+  font-family: 'VT323', monospace; font-size: 1.8rem;
+  color: var(--accent); letter-spacing: 3px;
+  text-shadow: 0 0 14px rgba(232,255,0,0.35);
+}
+.install-btn {
+  display: none; background: transparent; border: 1px solid var(--accent);
+  color: var(--accent); font-family: 'VT323', monospace; font-size: 0.9rem;
+  padding: 4px 10px; cursor: pointer; letter-spacing: 1px;
+}
+.install-btn.show { display: block; }
+
+/* ── NAV TABS (bottom) ── */
+.nav-bar {
+  display: flex; border-top: 1px solid var(--border);
+  padding-bottom: var(--safe-bottom);
+  flex-shrink: 0; background: var(--bg);
+}
+.nav-btn {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  gap: 2px; padding: 10px 4px; background: transparent; border: none;
+  color: var(--muted); cursor: pointer; transition: color .15s;
+  font-family: 'Space Mono', monospace;
+}
+.nav-btn .nav-icon { font-size: 1.2rem; line-height: 1; }
+.nav-btn .nav-label { font-size: 0.42rem; letter-spacing: 1px; text-transform: uppercase; }
+.nav-btn.active { color: var(--accent); border-top: 2px solid var(--accent); margin-top: -1px; }
+.nav-btn:hover { color: var(--text); }
+
+/* ── CONTENT AREA ── */
+.content { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; }
+
+/* ── SCREENS ── */
+.screen { display: none; padding: 14px 14px 20px; min-height: 100%; }
+.screen.active { display: block; }
+
+/* ── SEARCH CONTROLS ── */
+.search-box { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 100px; }
+.field label { font-size: 0.52rem; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+input, select {
+  background: var(--surface); border: 1px solid var(--border); color: var(--text);
+  font-family: 'Space Mono', monospace; font-size: 0.75rem;
+  padding: 9px 10px; outline: none; transition: border-color .2s; width: 100%;
+  border-radius: 0; -webkit-appearance: none; appearance: none;
+}
+input:focus, select:focus { border-color: var(--accent); }
+.btn {
+  background: var(--accent); color: #000; border: none;
+  font-family: 'VT323', monospace; font-size: 1.4rem;
+  padding: 9px 20px; cursor: pointer; letter-spacing: 2px;
+  transition: all .15s; white-space: nowrap; width: 100%;
+}
+.btn:active { background: var(--accent2); color: #fff; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+.btn-sm {
+  background: transparent; border: 1px solid var(--accent); color: var(--accent);
+  font-family: 'VT323', monospace; font-size: 1.1rem;
+  padding: 8px 16px; cursor: pointer; letter-spacing: 2px; white-space: nowrap;
+}
+.btn-sm:active { background: var(--accent); color: #000; }
+
+/* ── GENRE TAGS ── */
+.genre-grid { display: flex; flex-wrap: wrap; gap: 5px; }
+.gtag {
+  background: var(--surface); border: 1px solid var(--border); color: var(--muted);
+  font-family: 'Space Mono', monospace; font-size: 0.55rem;
+  padding: 4px 9px; cursor: pointer; user-select: none; transition: all .15s;
+}
+.gtag.on { border-color: var(--accent); color: var(--accent); background: rgba(232,255,0,0.06); }
+
+/* ── STATUS / ERROR ── */
+.status { font-size: 0.6rem; letter-spacing: 2px; color: var(--green); min-height: 1.4em; margin-bottom: 10px; }
+.err { color: var(--accent2); font-size: 0.68rem; padding: 10px; border: 1px solid var(--accent2); margin-bottom: 12px; }
+.loader { display: inline-block; width: 7px; height: 7px; background: var(--green); animation: blink .8s infinite; margin-right: 6px; }
+@keyframes blink { 0%,100%{opacity:1;}50%{opacity:0;} }
+
+/* ── SECTION HEADER ── */
+.sec-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); flex-wrap: wrap; gap: 4px; }
+.sec-title { font-family: 'VT323', monospace; font-size: 1.2rem; color: var(--accent); letter-spacing: 2px; }
+.sec-sub { font-size: 0.5rem; color: var(--muted); }
+.month-head { font-family: 'VT323', monospace; font-size: 1.3rem; color: var(--accent2); letter-spacing: 2px; padding: 4px 0; border-bottom: 1px solid var(--border); margin: 16px 0 8px; }
+
+/* ── CARDS ── */
+.card {
+  display: grid; grid-template-columns: 52px 1fr auto;
+  gap: 10px; align-items: center;
+  padding: 11px 12px; border: 1px solid var(--border);
+  margin-bottom: 5px; background: var(--surface);
+  cursor: pointer; position: relative; overflow: hidden;
+  transition: border-color .15s;
+  -webkit-touch-callout: none;
+}
+.card::before { content:''; position:absolute; right:0; top:0; bottom:0; width:3px; background:var(--border); transition:background .2s; }
+.card:active { border-color: rgba(232,255,0,0.4); background: #151515; }
+.card:active::before { background: var(--accent); }
+.card.round { border-color: rgba(255,215,0,0.35); background: #131100; }
+.card.round::before { background: var(--gold); }
+.card.half::before { background: var(--accent2); }
+.card.bday { border-color: rgba(0,255,136,0.2); }
+.card.bday::before { background: var(--green); }
+
+.c-date { text-align: center; border-left: 1px solid var(--border); padding-right: 10px; }
+.c-day { font-family: 'VT323', monospace; font-size: 1.8rem; color: var(--accent); line-height: 1; }
+.c-wd { font-size: 0.44rem; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.c-info { min-width: 0; }
+.c-title { font-size: 0.76rem; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.c-sub { font-size: 0.6rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.c-meta { text-align: left; flex-shrink: 0; }
+.c-years { font-family: 'VT323', monospace; font-size: 1.1rem; color: var(--accent2); white-space: nowrap; }
+.c-years.gold { color: var(--gold); }
+.c-badge { font-size: 0.44rem; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; display: block; text-align: left; margin-top: 2px; }
+.c-ann { font-size: 0.42rem; color: var(--gold); display: block; text-align: left; }
+.c-wiki { font-size: 0.44rem; color: var(--accent); display: block; text-align: left; }
+.c-bday-icon { font-size: 0.44rem; color: var(--green); display: block; text-align: left; }
+
+.empty { text-align: center; padding: 50px 20px; color: var(--muted); font-size: 0.68rem; letter-spacing: 2px; line-height: 2; }
+
+/* ── TOAST ── */
+.toast {
+  position: fixed; bottom: calc(60px + var(--safe-bottom) + 12px); left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--accent); color: #000;
+  font-family: 'VT323', monospace; font-size: 1.1rem; letter-spacing: 2px;
+  padding: 8px 20px; transition: transform .3s; z-index: 999; pointer-events: none;
+}
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* ── TODAY BANNER ── */
+.today-banner {
+  background: rgba(0,255,136,0.06); border: 1px solid #1a3a2a;
+  padding: 10px 12px; margin-bottom: 14px;
+  font-size: 0.65rem; color: var(--green); letter-spacing: 2px;
+}
+
+/* Desktop tweaks */
+@media (min-width: 600px) {
+  .row { flex-wrap: nowrap; }
+  .btn { width: auto; }
+  .nav-btn .nav-label { font-size: 0.48rem; }
+}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <span class="app-title">◈ ימי שנה</span>
+  <button class="install-btn" id="installBtn" onclick="installApp()">+ הוסף לנייד</button>
+</header>
+
+<div class="content" id="content">
+
+  <!-- ══ SCREEN: RELEASES (ז'אנר / אמן / חודש) ══ -->
+  <div class="screen active" id="scr-releases">
+    <!-- Sub-tabs -->
+    <div style="display:flex;gap:0;margin-bottom:14px;border-bottom:1px solid var(--border);">
+      <button class="nav-btn active" id="sub-genre" onclick="subTab('genre',this)" style="font-size:0.55rem;padding:7px 10px;flex:none;border-top:none;">ז׳אנר</button>
+      <button class="nav-btn" id="sub-artist" onclick="subTab('artist',this)" style="font-size:0.55rem;padding:7px 10px;flex:none;border-top:none;">אמן</button>
+      <button class="nav-btn" id="sub-month" onclick="subTab('month',this)" style="font-size:0.55rem;padding:7px 10px;flex:none;border-top:none;">חודש</button>
+    </div>
+
+    <!-- Genre sub -->
+    <div id="sub-genre-panel">
+      <div class="search-box">
+        <div class="field"><label>ז׳אנרים</label><div class="genre-grid" id="genreGrid"></div></div>
+        <div class="row">
+          <div class="field" style="max-width:90px;"><label>מ-שנה</label><input type="number" id="yearFrom" value="1960" min="1900" max="2020"></div>
+          <div class="field" style="max-width:90px;"><label>עד-שנה</label><input type="number" id="yearTo" value="2000" min="1900" max="2025"></div>
+          <div class="field" style="max-width:90px;"><label>סוג</label><select id="genreType"><option value="all">הכל</option><option value="Album">אלבום</option><option value="Single">סינגל</option><option value="EP">EP</option></select></div>
+          <div class="field" style="max-width:90px;"><label>טווח</label><select id="genreRange"><option value="1">חודש</option><option value="3" selected>3 חודשים</option><option value="6">חצי שנה</option></select></div>
+        </div>
+        <button class="btn" id="genreBtn" onclick="doGenreSearch()">חפש ◈</button>
+      </div>
+    </div>
+
+    <!-- Artist sub -->
+    <div id="sub-artist-panel" style="display:none;">
+      <div class="search-box">
+        <div class="field"><label>שם אמן / להקה</label><input type="text" id="artistInput" placeholder="The Cure, Siouxsie..." onkeydown="if(event.key==='Enter')doArtistSearch()"></div>
+        <div class="row">
+          <div class="field"><label>סוג</label><select id="artistType"><option value="all">הכל</option><option value="Album">אלבום</option><option value="Single">סינגל</option><option value="EP">EP</option></select></div>
+          <div class="field"><label>טווח</label><select id="artistRange"><option value="1">חודש</option><option value="3" selected>3 חודשים</option><option value="6">חצי שנה</option><option value="12">שנה מלאה</option></select></div>
+        </div>
+        <button class="btn" id="artistBtn" onclick="doArtistSearch()">חפש ◈</button>
+      </div>
+    </div>
+
+    <!-- Month sub -->
+    <div id="sub-month-panel" style="display:none;">
+      <div class="search-box">
+        <div class="row">
+          <div class="field"><label>חודש</label><select id="monthSelect"></select></div>
+          <div class="field" style="max-width:90px;"><label>מ-שנה</label><input type="number" id="monthYearFrom" value="1960" min="1900" max="2020"></div>
+          <div class="field" style="max-width:90px;"><label>עד-שנה</label><input type="number" id="monthYearTo" value="2000" min="1900" max="2025"></div>
+          <div class="field"><label>סוג</label><select id="monthType"><option value="all">הכל</option><option value="Album">אלבום</option><option value="Single">סינגל</option><option value="EP">EP</option></select></div>
+        </div>
+        <div class="field"><label>ז׳אנר (אופציונלי)</label><input type="text" id="monthGenre" placeholder="post-punk, rock..."></div>
+        <button class="btn" id="monthBtn" onclick="doMonthSearch()">חפש ◈</button>
+      </div>
+    </div>
+
+    <div class="status" id="relStatus"></div>
+    <div id="relError"></div>
+    <div id="relResults"></div>
+  </div>
+
+  <!-- ══ SCREEN: TITLE SEARCH ══ -->
+  <div class="screen" id="scr-title">
+    <div class="search-box">
+      <div class="field"><label>שם אלבום / סינגל</label><input type="text" id="titleInput" placeholder="Faith, Blue Monday, Poptones..." onkeydown="if(event.key==='Enter')doTitleSearch()"></div>
+      <div class="field"><label>אמן (אופציונלי)</label><input type="text" id="titleArtist" placeholder="The Cure..." onkeydown="if(event.key==='Enter')doTitleSearch()"></div>
+      <button class="btn" id="titleBtn" onclick="doTitleSearch()">חפש ◈</button>
+      <button class="btn-sm" onclick="openWikiDirect()">↗ פתח ב-Wikipedia ישירות</button>
+    </div>
+    <div class="status" id="titleStatus"></div>
+    <div id="titleError"></div>
+    <div id="titleResults"></div>
+  </div>
+
+  <!-- ══ SCREEN: BIRTHDAYS ══ -->
+  <div class="screen" id="scr-bdays">
+    <div class="search-box">
+      <div class="row">
+        <div class="field"><label>חודש</label><select id="bdayMonth"></select></div>
+        <div class="field" style="max-width:80px;"><label>יום (אופציונלי)</label><input type="number" id="bdayDay" placeholder="כל" min="1" max="31"></div>
+        <div class="field"><label>ז׳אנר (אופציונלי)</label><input type="text" id="bdayGenre" placeholder="rock, jazz..."></div>
+      </div>
+      <button class="btn" id="bdayBtn" onclick="doBdaySearch()">חפש ימי הולדת ◈</button>
+    </div>
+    <div class="status" id="bdayStatus"></div>
+    <div id="bdayError"></div>
+    <div id="bdayResults"></div>
+  </div>
+
+  <!-- ══ SCREEN: TODAY ══ -->
+  <div class="screen" id="scr-today">
+    <div class="today-banner" id="todayBanner"></div>
+    <button class="btn" id="todayBtn" onclick="doTodayAll()" style="margin-bottom:14px;">מה קרה היום בהיסטוריה? ◈</button>
+    <div class="status" id="todayStatus"></div>
+    <div id="todayError"></div>
+    <div id="todayResults"></div>
+  </div>
+
+  <!-- ══ SCREEN: DATE ══ -->
+  <div class="screen" id="scr-date">
+    <div class="search-box">
+      <div class="field"><label>תאריך ספציפי</label><input type="date" id="specificDate"></div>
+      <div class="field"><label>ז׳אנר (אופציונלי)</label><input type="text" id="dateGenre" placeholder="post-punk..."></div>
+      <button class="btn" id="dateBtn" onclick="doDateSearch()">חפש ◈</button>
+    </div>
+    <div class="status" id="dateStatus"></div>
+    <div id="dateError"></div>
+    <div id="dateResults"></div>
+  </div>
+
+</div><!-- /content -->
+
+<!-- Nav Bar -->
+<nav class="nav-bar">
+  <button class="nav-btn active" onclick="switchScreen('releases',this)">
+    <span class="nav-icon">◈</span>
+    <span class="nav-label">הוצאות</span>
+  </button>
+  <button class="nav-btn" onclick="switchScreen('title',this)">
+    <span class="nav-icon">⌕</span>
+    <span class="nav-label">כותר</span>
+  </button>
+  <button class="nav-btn" onclick="switchScreen('bdays',this)">
+    <span class="nav-icon">♪</span>
+    <span class="nav-label">ימי הולדת</span>
+  </button>
+  <button class="nav-btn" onclick="switchScreen('today',this)">
+    <span class="nav-icon">★</span>
+    <span class="nav-label">היום</span>
+  </button>
+  <button class="nav-btn" onclick="switchScreen('date',this)">
+    <span class="nav-icon">◷</span>
+    <span class="nav-label">תאריך</span>
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── CONSTANTS ──
+var GENRES = ['post-punk','goth rock','new wave','synth-pop','electronic','punk','glam rock',
+  'psychedelic rock','disco','britpop','industrial','darkwave','cold wave','shoegaze','rock',
+  'alternative rock','indie rock','new romantic','minimal synth','soul','funk','jazz','blues','reggae','hip-hop'];
+var WD = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
+var MHE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+var today = new Date();
+var activeGenres = new Set(['post-punk','new wave','synth-pop','goth rock','punk','glam rock','electronic']);
+var deferredPrompt = null;
+
+// ── PWA INSTALL ──
+window.addEventListener('beforeinstallprompt', function(e) {
+  e.preventDefault(); deferredPrompt = e;
+  document.getElementById('installBtn').classList.add('show');
+});
+function installApp() {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(function() { deferredPrompt = null; document.getElementById('installBtn').classList.remove('show'); });
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(function(){});
+}
+
+// ── INIT ──
+var gg = document.getElementById('genreGrid');
+GENRES.forEach(function(g) {
+  var t = document.createElement('span');
+  t.className = 'gtag' + (activeGenres.has(g) ? ' on' : '');
+  t.textContent = g;
+  t.onclick = function() {
+    if (activeGenres.has(g)) { activeGenres.delete(g); t.classList.remove('on'); }
+    else { activeGenres.add(g); t.classList.add('on'); }
+  };
+  gg.appendChild(t);
+});
+
+['monthSelect','bdayMonth'].forEach(function(id) {
+  var sel = document.getElementById(id);
+  MHE.forEach(function(n, i) {
+    var o = document.createElement('option');
+    o.value = i + 1; o.textContent = n;
+    if (i === today.getMonth()) o.selected = true;
+    sel.appendChild(o);
+  });
+});
+
+document.getElementById('specificDate').valueAsDate = today;
+document.getElementById('todayBanner').textContent =
+  'היום: ' + today.getDate() + ' ב' + MHE[today.getMonth()] + ' ' + today.getFullYear() + ' · ' + WD[today.getDay()];
+
+// ── NAVIGATION ──
+function switchScreen(name, el) {
+  document.querySelectorAll('.screen').forEach(function(s) { s.classList.remove('active'); });
+  document.querySelectorAll('.nav-bar .nav-btn').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('scr-' + name).classList.add('active');
+  el.classList.add('active');
+  document.getElementById('content').scrollTop = 0;
+}
+function subTab(name, el) {
+  ['genre','artist','month'].forEach(function(n) {
+    document.getElementById('sub-'+n+'-panel').style.display = n === name ? '' : 'none';
+    document.getElementById('sub-'+n).classList.toggle('active', n === name);
+  });
+  document.getElementById('relResults').innerHTML = '';
+  setS('rel','');
+}
+
+// ── UI HELPERS ──
+function setS(prefix, msg) {
+  var el = document.getElementById(prefix+'Status');
+  if (el) el.innerHTML = msg ? '<span class="loader"></span>' + msg : '';
+}
+function setE(prefix, msg) {
+  var el = document.getElementById(prefix+'Error');
+  if (el) el.innerHTML = msg ? '<div class="err">' + msg + '</div>' : '';
+}
+function setR(prefix, html) {
+  var el = document.getElementById(prefix+'Results');
+  if (el) el.innerHTML = html;
+}
+function toast(msg) {
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(function() { t.classList.remove('show'); }, 2000);
+}
+
+// ── UTILS ──
+function annType(year) {
+  var n = today.getFullYear() - year;
+  if (n <= 0) return null;
+  if (n % 10 === 0) return 'round';
+  if (n % 5 === 0) return 'half';
+  return null;
+}
+function annScore(r) { var t = annType(r.year); return t==='round'?0:t==='half'?1:2; }
+
+function parseDate(s) {
+  if (!s) return null;
+  var p = s.split('-');
+  if (p.length < 2) return null;
+  return { year: parseInt(p[0]), month: parseInt(p[1]), day: p[2] ? parseInt(p[2]) : null };
+}
+function monthList(n) {
+  var r = [];
+  for (var i = 0; i < n; i++) {
+    var d = new Date(today.getFullYear(), today.getMonth() + i, 1);
+    r.push(String(d.getMonth()+1).padStart(2,'0'));
+  }
+  return r;
+}
+function inMonths(dateStr, months) {
+  var d = parseDate(dateStr);
+  if (!d || !d.month) return false;
+  return monthList(months).map(function(m){return parseInt(m);}).indexOf(d.month) !== -1;
+}
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── CLAUDE API ──
+async function claude(prompt) {
+  var res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!res.ok) throw new Error('API ' + res.status);
+  var data = await res.json();
+  var text = data.content.map(function(b){return b.text||'';}).join('');
+  var si = text.indexOf('[');
+  if (si === -1) throw new Error('אין JSON בתשובה');
+  var js = text.slice(si);
+  var ei = js.lastIndexOf(']');
+  if (ei !== -1) { try { return JSON.parse(js.slice(0,ei+1)); } catch(e){} }
+  // salvage
+  var items=[], depth=0, start=-1;
+  for (var i=0;i<js.length;i++) {
+    if (js[i]==='{') { if(depth===0)start=i; depth++; }
+    else if (js[i]==='}') { depth--; if(depth===0&&start!==-1){try{items.push(JSON.parse(js.slice(start,i+1)));}catch(e){} start=-1;} }
+  }
+  if (items.length>0) return items;
+  throw new Error('לא ניתן לפרסר');
+}
+
+// ── WIKIDATA BIRTHDAYS ──
+async function wikiBirthdays(month, day, genre) {
+  var dayFilter = day ? '  FILTER(DAY(?bdate) = ' + day + ')\n' : '';
+  var genreFilter = genre ? '  ?person wdt:P136 ?genreItem .\n  ?genreItem rdfs:label "' + genre + '"@en .\n' : '';
+  var sparql = `
+SELECT DISTINCT ?person ?personLabel ?bdate ?desc WHERE {
+  ?person wdt:P31 wd:Q5 ;
+          wdt:P106 ?occ ;
+          wdt:P569 ?bdate .
+  VALUES ?occ { wd:Q177220 wd:Q36834 wd:Q488205 wd:Q134556 wd:Q855091 wd:Q183945 wd:Q753110 }
+  FILTER(MONTH(?bdate) = ${month})
+  ${dayFilter}${genreFilter}
+  OPTIONAL { ?person schema:description ?desc FILTER(LANG(?desc)="en") }
+  SERVICE wikibase:label { bd:serviceParam wikibase:language "en,he". }
+}
+ORDER BY DAY(?bdate) ?personLabel
+LIMIT 80`;
+
+  var url = 'https://query.wikidata.org/sparql?query=' + encodeURIComponent(sparql) + '&format=json';
+  var res = await fetch(url, { headers: { 'Accept': 'application/sparql-results+json' } });
+  if (!res.ok) throw new Error('Wikidata ' + res.status);
+  var data = await res.json();
+  var seen = new Set();
+  return data.results.bindings.map(function(b) {
+    var name = b.personLabel ? b.personLabel.value : '?';
+    var dateStr = b.bdate ? b.bdate.value.slice(0,10) : null;
+    var d = parseDate(dateStr);
+    if (!d || seen.has(name)) return null;
+    seen.add(name);
+    return { name: name, date: dateStr, year: d ? d.year : 0, month: d ? d.month : month, day: d ? (d.day||1) : 1, desc: b.desc ? b.desc.value : '' };
+  }).filter(Boolean);
+}
+
+// ── BUILD PROMPT ──
+function buildPrompt(ctx, months, typeHint, yFrom, yTo) {
+  var mStr = months ? 'where original release month is one of: ' + months.join(',') : '';
+  var yStr = (yFrom && yTo) ? 'released between ' + yFrom + ' and ' + yTo : '';
+  return 'You are a music database. List real music releases ' + ctx + ' ' + mStr + ' ' + yStr + '. '
+    + (typeHint || '') + ' Include albums, singles, AND EPs — do not skip singles. '
+    + 'Return ONLY a JSON array: [{"title":"...","artist":"...","date":"YYYY-MM-DD","type":"Album|Single|EP"}]. '
+    + 'Use 01 for unknown day. No markdown.';
+}
+
+function processRaw(raw, filterFn, seen) {
+  var out = [];
+  for (var i=0;i<raw.length;i++) {
+    var r = raw[i];
+    if (!r.date || (filterFn && !filterFn(r.date))) continue;
+    var key = (r.artist||'') + '||' + (r.title||'');
+    if (seen.has(key)) continue; seen.add(key);
+    var d = parseDate(r.date);
+    if (!d) continue;
+    out.push({ title:r.title, artist:r.artist||'—', year:d.year, month:d.month, day:d.day||1, type:r.type||'Release' });
+  }
+  return out;
+}
+
+// ── CARD RENDERER ──
+function renderCard(r) {
+  var at = annType(r.year);
+  var ya = today.getFullYear() - r.year;
+  var dt = new Date(today.getFullYear(), r.month-1, r.day);
+  var cc = at==='round'?'card round':at==='half'?'card half':'card';
+  var yc = at==='round'?'c-years gold':'c-years';
+  var al = at==='round'?'<span class="c-ann">⬡ יובל</span>':at==='half'?'<span class="c-ann" style="color:var(--accent2)">◈ חצי</span>':'';
+  var tw = r.type==='Album'?'album':r.type==='Single'?'song':'EP';
+  var wu = 'https://en.wikipedia.org/w/index.php?search=' + encodeURIComponent(r.title+' '+r.artist+' '+tw) + '&ns0=1';
+  var su = wu.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return '<div class="'+cc+'" onclick="window.open(\''+su+'\',\'_blank\')">'
+    + '<div class="c-date"><div class="c-day">'+r.day+'</div><div class="c-wd">'+WD[dt.getDay()]+'</div></div>'
+    + '<div class="c-info"><div class="c-title">'+esc(r.title)+'</div><div class="c-sub">'+esc(r.artist)+' · '+r.year+'</div></div>'
+    + '<div class="c-meta"><div class="'+yc+'">'+ya+'Y</div>'+al+'<span class="c-badge">'+esc(r.type)+'</span><span class="c-wiki">↗ wiki</span></div>'
+    + '</div>';
+}
+
+function renderBdayCard(p) {
+  var age = today.getFullYear() - p.year;
+  var at = annType(p.year);
+  var cc = 'card bday' + (at==='round'?' round':'');
+  var yc = at==='round'?'c-years gold':'c-years';
+  var al = at==='round'?'<span class="c-ann">⬡ יובל</span>':at==='half'?'<span class="c-ann" style="color:var(--accent2)">◈</span>':'';
+  var wu = 'https://en.wikipedia.org/w/index.php?search=' + encodeURIComponent(p.name) + '&ns0=1';
+  var su = wu.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  return '<div class="'+cc+'" onclick="window.open(\''+su+'\',\'_blank\')">'
+    + '<div class="c-date"><div class="c-day">'+p.day+'</div><div class="c-wd">'+WD[new Date(today.getFullYear(),p.month-1,p.day).getDay()]+'</div></div>'
+    + '<div class="c-info"><div class="c-title">'+esc(p.name)+'</div><div class="c-sub">'+esc(p.desc||'')+'</div></div>'
+    + '<div class="c-meta"><div class="'+yc+'">'+age+'</div>'+al+'<span class="c-badge">'+p.year+'</span><span class="c-bday-icon">♪ wiki</span></div>'
+    + '</div>';
+}
+
+function renderList(releases, prefix, flatMode) {
+  if (!releases.length) { setR(prefix,'<div class="empty">לא נמצאו תוצאות<br>נסי פרמטרים אחרים</div>'); return; }
+  var seen=new Set(), ded=releases.filter(function(r){var k=r.artist+'||'+r.title+'||'+r.year;if(seen.has(k))return false;seen.add(k);return true;});
+  ded.sort(function(a,b){var s=annScore(a)-annScore(b);if(s)return s;return flatMode?a.year-b.year:new Date(today.getFullYear(),a.month-1,a.day)-new Date(today.getFullYear(),b.month-1,b.day);});
+  var html='<div class="sec-head"><span class="sec-title">◈ '+ded.length+' תוצאות</span><span class="sec-sub">לחיצה = Wikipedia</span></div>';
+  if (flatMode) { ded.forEach(function(r){html+=renderCard(r);}); }
+  else {
+    var bm={};ded.forEach(function(r){if(!bm[r.month])bm[r.month]=[];bm[r.month].push(r);});
+    Object.keys(bm).sort(function(a,b){return+a-+b;}).forEach(function(m){
+      html+='<div class="month-head">// '+MHE[+m-1]+'</div>';
+      bm[m].forEach(function(r){html+=renderCard(r);});
+    });
+  }
+  setR(prefix, html);
+}
+
+// ── SEARCHES ──
+async function doGenreSearch() {
+  var btn=document.getElementById('genreBtn'); btn.disabled=true;
+  setE('rel',''); setR('rel','');
+  var yF=document.getElementById('yearFrom').value, yT=document.getElementById('yearTo').value;
+  var rt=document.getElementById('genreType').value, rng=parseInt(document.getElementById('genreRange').value);
+  if (!activeGenres.size) { setE('rel',"בחרי לפחות ז'אנר"); btn.disabled=false; return; }
+  var genres=Array.from(activeGenres), ml=monthList(rng), th=rt!=='all'?'Type: '+rt+' only.':'';
+  var all=[], seen=new Set();
+  try {
+    for (var i=0;i<genres.length;i++) {
+      setS('rel','טוען '+genres[i]+' ('+(i+1)+'/'+genres.length+')...');
+      var raw=await claude(buildPrompt('in the genre "'+genres[i]+'"',ml,th,yF,yT));
+      all=all.concat(processRaw(raw,function(d){return inMonths(d,rng);},seen));
+    }
+    setS('rel',''); renderList(all,'rel',false);
+  } catch(e){ setS('rel',''); setE('rel','שגיאה: '+e.message); }
+  btn.disabled=false;
+}
+
+async function doArtistSearch() {
+  var btn=document.getElementById('artistBtn'); btn.disabled=true;
+  setE('rel',''); setR('rel','');
+  var artist=document.getElementById('artistInput').value.trim();
+  if (!artist) { setE('rel','הכניסי שם אמן'); btn.disabled=false; return; }
+  var rt=document.getElementById('artistType').value, rng=parseInt(document.getElementById('artistRange').value);
+  var ml=monthList(rng), th=rt!=='all'?'Type: '+rt+' only.':'';
+  var all=[], seen=new Set();
+  try {
+    for (var mi=0;mi<ml.length;mi++) {
+      setS('rel','מחפש '+artist+' · חודש '+(mi+1)+'/'+ml.length+'...');
+      var raw=await claude(buildPrompt('by "'+artist+'"',[ml[mi]],th,null,null));
+      all=all.concat(processRaw(raw,function(d){return inMonths(d,rng);},seen));
+    }
+    setS('rel',''); renderList(all,'rel',false);
+  } catch(e){ setS('rel',''); setE('rel','שגיאה: '+e.message); }
+  btn.disabled=false;
+}
+
+async function doMonthSearch() {
+  var btn=document.getElementById('monthBtn'); btn.disabled=true;
+  setE('rel',''); setR('rel','');
+  var mo=document.getElementById('monthSelect').value;
+  var yF=document.getElementById('monthYearFrom').value, yT=document.getElementById('monthYearTo').value;
+  var rt=document.getElementById('monthType').value;
+  var genre=document.getElementById('monthGenre').value.trim();
+  var th=rt!=='all'?'Type: '+rt+' only.':'';
+  var ctx=genre?'in the genre "'+genre+'"':'across all genres';
+  setS('rel','מחפש '+MHE[parseInt(mo)-1]+'...');
+  try {
+    var raw=await claude(buildPrompt(ctx,[String(mo).padStart(2,'0')],th,yF,yT));
+    var moN=parseInt(mo);
+    var rel=processRaw(raw,function(d){var dp=parseDate(d);return dp&&dp.month===moN;},new Set());
+    setS('rel',''); renderList(rel,'rel',true);
+  } catch(e){ setS('rel',''); setE('rel','שגיאה: '+e.message); }
+  btn.disabled=false;
+}
+
+async function doTitleSearch() {
+  var btn=document.getElementById('titleBtn'); btn.disabled=true;
+  setE('title',''); setR('title','');
+  var title=document.getElementById('titleInput').value.trim();
+  var artist=document.getElementById('titleArtist').value.trim();
+  if (!title) { setE('title','הכניסי שם כותר'); btn.disabled=false; return; }
+  setS('title','מחפש '+title+'...');
+  try {
+    var p='You are a music database. Find the release "'+title+'"'+(artist?' by "'+artist+'"':'')+'. '
+      +'Return ONLY a JSON array: [{"title":"...","artist":"...","date":"YYYY-MM-DD","type":"Album|Single|EP"}]. No markdown.';
+    var raw=await claude(p);
+    var rel=processRaw(raw,null,new Set());
+    setS('title',''); renderList(rel,'title',true);
+  } catch(e){ setS('title',''); setE('title','שגיאה: '+e.message); }
+  btn.disabled=false;
+}
+
+function openWikiDirect() {
+  var t=document.getElementById('titleInput').value.trim();
+  var a=document.getElementById('titleArtist').value.trim();
+  if (!t) { setE('title','הכניסי שם כותר'); return; }
+  window.open('https://en.wikipedia.org/w/index.php?search='+encodeURIComponent(t+(a?' '+a:'')+' album OR single')+'&ns0=1','_blank');
+}
+
+async function doBdaySearch() {
+  var btn=document.getElementById('bdayBtn'); btn.disabled=true;
+  setE('bday',''); setR('bday','');
+  var mo=parseInt(document.getElementById('bdayMonth').value);
+  var dy=parseInt(document.getElementById('bdayDay').value)||null;
+  var genre=document.getElementById('bdayGenre').value.trim();
+  setS('bday','מחפש ימי הולדת ב-'+MHE[mo-1]+'...');
+  try {
+    var people=await wikiBirthdays(mo,dy,genre);
+    if (!people.length) { setS('bday',''); setR('bday','<div class="empty">לא נמצאו תוצאות<br>נסי ללא סינון ז\'אנר</div>'); btn.disabled=false; return; }
+    people.sort(function(a,b){return (annScore(a)-annScore(b))||a.day-b.day;});
+    var html='<div class="sec-head"><span class="sec-title">♪ '+people.length+' מוזיקאים</span><span class="sec-sub">Wikidata · לחיצה = Wikipedia</span></div>';
+    people.forEach(function(p){html+=renderBdayCard(p);});
+    setS('bday',''); setR('bday',html);
+  } catch(e){ setS('bday',''); setE('bday','שגיאה: '+e.message); }
+  btn.disabled=false;
+}
+
+async function doDateSearch() {
+  var btn=document.getElementById('dateBtn'); btn.disabled=true;
+  setE('date',''); setR('date','');
+  var dv=document.getElementById('specificDate').value;
+  if (!dv) { setE('date','בחרי תאריך'); btn.disabled=false; return; }
+  var parts=dv.split('-').map(Number), mo=parts[1], dy=parts[2];
+  var genre=document.getElementById('dateGenre').value.trim();
+  var ctx=genre?'in the genre "'+genre+'"':'across all genres';
+  setS('date','מחפש '+dy+'/'+mo+'...');
+  try {
+    var p='You are a music database. List real music releases '+ctx+' originally released on '+dy+'/'+mo+' (any year). Include albums, singles, EPs. Return ONLY a JSON array: [{"title":"...","artist":"...","date":"YYYY-MM-DD","type":"Album|Single|EP"}]. No markdown.';
+    var raw=await claude(p);
+    var rel=processRaw(raw,function(d){var dp=parseDate(d);return dp&&dp.month===mo;},new Set());
+    setS('date',''); renderList(rel,'date',true);
+  } catch(e){ setS('date',''); setE('date','שגיאה: '+e.message); }
+  btn.disabled=false;
+}
+
+async function doTodayAll() {
+  var btn=document.getElementById('todayBtn'); btn.disabled=true;
+  setE('today',''); setR('today','');
+  var mo=today.getMonth()+1, dy=today.getDate();
+  setS('today','מחפש הוצאות וימי הולדת ב-'+dy+'/'+mo+'...');
+  try {
+    // Releases + birthdays in parallel
+    var relPromise=claude('You are a music database. List real releases originally released on '+dy+'/'+mo+' (any year). Include albums, singles, EPs. Return ONLY JSON: [{"title":"...","artist":"...","date":"YYYY-MM-DD","type":"Album|Single|EP"}]. No markdown.');
+    var bdPromise=wikiBirthdays(mo,dy,'');
+    var results=await Promise.allSettled([relPromise,bdPromise]);
+
+    var releases=[], bdays=[];
+    if (results[0].status==='fulfilled') releases=processRaw(results[0].value,function(d){var dp=parseDate(d);return dp&&dp.month===mo;},new Set());
+    if (results[1].status==='fulfilled') bdays=results[1].value;
+
+    var html='';
+    if (bdays.length) {
+      bdays.sort(function(a,b){return annScore(a)-annScore(b)||a.year-b.year;});
+      html+='<div class="month-head">♪ ימי הולדת</div>';
+      bdays.forEach(function(p){html+=renderBdayCard(p);});
+    }
+    if (releases.length) {
+      releases.sort(function(a,b){return annScore(a)-annScore(b)||a.year-b.year;});
+      html+='<div class="month-head">◈ הוצאות</div>';
+      releases.forEach(function(r){html+=renderCard(r);});
+    }
+    if (!html) html='<div class="empty">לא נמצא מידע להיום זה</div>';
+    setS('today',''); setR('today',html);
+  } catch(e){ setS('today',''); setE('today','שגיאה: '+e.message); }
+  btn.disabled=false;
+}
+</script>
+</body>
+</html>
