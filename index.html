@@ -490,7 +490,7 @@ ORDER BY DAY(?bdate) ?personLabel
 LIMIT 80`;
 
   var url = 'https://query.wikidata.org/sparql?query=' + encodeURIComponent(sparql) + '&format=json';
-  var res = await fetch(url, { headers: { 'Accept': 'application/sparql-results+json' } });
+  var res = await fetch(url, { headers: { 'Accept': 'application/sparql-results+json', 'User-Agent': 'MusicAnniversaries/1.0 (https://github.com/artemissia-pixel/Music-Calendar)' } });
   if (!res.ok) throw new Error('Wikidata ' + res.status);
   var data = await res.json();
   var seen = new Set();
