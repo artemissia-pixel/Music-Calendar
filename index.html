@@ -246,44 +246,39 @@ async function mbFetch(path){
 
 // Search releases by month across our genres
 async function mbReleasesByMonth(months){
-  // Build date range queries per month
   var allRGs=[], seen=new Set();
-  var tagQuery=MB_TAGS.slice(0,8).map(function(t){return'tag:"'+t+'"';}).join(' OR ');
-
+  var tagQ=MB_TAGS.slice(0,8).map(function(t){return'tag:"'+t+'"';}).join(' OR ');
   for(var mi=0;mi<months.length;mi++){
     var mo=String(months[mi]).padStart(2,'0');
-    // Search release-groups with first release date in this month
-    // Use date range: YYYY-MM-01 to YYYY-MM-31 across all years
-    // MusicBrainz Lucene: firstreleasedate:[*-MM-* TO *-MM-*] — not supported directly
-    // Use: firstreleasedate:????-MM-??
-    var q='('+tagQuery+') AND firstreleasedate:????-'+mo+'-??';
-    try{
-      var data=await mbFetch('release-group?query='+encodeURIComponent(q)+'&limit=25&offset=0');
-      var rgs=data['release-groups']||[];
-      rgs.forEach(function(rg){
-        var frd=rg['first-release-date'];
-        if(!frd)return;
-        var d=parseD(frd);
-        if(!d||d.month!==months[mi])return;
-        var key=(rg['artist-credit']&&rg['artist-credit'][0]?rg['artist-credit'][0].name:'')||rg.id;
-        var titleKey=key+'||'+(rg.title||'');
-        if(seen.has(titleKey))return;
-        seen.add(titleKey);
-        allRGs.push({
-          title:rg.title||'?',
-          artist:(rg['artist-credit']&&rg['artist-credit'][0]?rg['artist-credit'][0].name:'?'),
-          year:d.year, month:d.month, day:d.day||1,
-          type:rg['primary-type']||'Release'
+    // Range query: all March releases from 1970 to 2010
+    var q='('+tagQ+') AND firstreleasedate:[1970-'+mo+' TO 2010-'+mo+']';
+    var offsets=[0,25,50];
+    for(var oi=0;oi<offsets.length;oi++){
+      try{
+        var data=await mbFetch('release-group?query='+encodeURIComponent(q)+'&limit=25&offset='+offsets[oi]);
+        var rgs=data['release-groups']||[];
+        if(!rgs.length)break;
+        rgs.forEach(function(rg){
+          var frd=rg['first-release-date'];
+          if(!frd||frd.length<7)return;
+          var d=parseD(frd);
+          if(!d||d.month!==months[mi])return;
+          var ac=rg['artist-credit'];
+          var artist=ac&&ac[0]?ac[0].name:'?';
+          var key=artist+'||'+rg.title;
+          if(seen.has(key))return;
+          seen.add(key);
+          allRGs.push({title:rg.title||'?',artist:artist,year:d.year,month:d.month,day:d.day||1,type:rg['primary-type']||'Release'});
         });
-      });
-    }catch(e){console.warn('MB query failed:',e.message);}
-    // Rate limit
-    await new Promise(function(r){setTimeout(r,300);});
+        if(rgs.length<25)break;
+      }catch(e){console.warn('MB',mo,e.message);}
+      if(oi<offsets.length-1)await new Promise(function(r){setTimeout(r,1100);});
+    }
+    if(mi<months.length-1)await new Promise(function(r){setTimeout(r,1100);});
   }
   return allRGs;
 }
 
-// Search by artist name
 async function mbSearchArtist(artistName){
   var data=await mbFetch('artist?query='+encodeURIComponent(artistName)+'&limit=5');
   var artists=data.artists||[];
