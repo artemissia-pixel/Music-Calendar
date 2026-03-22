@@ -165,7 +165,7 @@ var T=new Date();
 var curT='today',showRel=true,showBday=true,dP=null;
 
 // Wikidata genre IDs (musical works)
-var GENRE_IDS='wd:Q183504 wd:Q1640239 wd:Q205560 wd:Q208909 wd:Q9778 wd:Q11399 wd:Q9585 wd:Q182821 wd:Q1338489 wd:Q4818508 wd:Q41298 wd:Q37073 wd:Q1570894 wd:Q838795 wd:Q37029 wd:Q180377 wd:Q11366 wd:Q484641 wd:Q7749 wd:Q49451 wd:Q203059';
+var GENRE_IDS='wd:Q183504 wd:Q1640239 wd:Q205560 wd:Q208909 wd:Q9778 wd:Q11399 wd:Q180377 wd:Q1570894 wd:Q838795 wd:Q182821 wd:Q11366 wd:Q9585 wd:Q41298 wd:Q37073 wd:Q1975196 wd:Q1194456';
 // P31 types for musical releases
 var RELEASE_TYPES='wd:Q208569 wd:Q134556 wd:Q169930 wd:Q482994 wd:Q7366';
 
@@ -222,44 +222,47 @@ async function wdQuery(sparql){
 async function wdReleases(months,day){
   var mf='VALUES ?m {'+months.map(function(m){return'"'+m+'"^^xsd:integer';}).join(' ')+'}';
   var df=day?'FILTER(DAY(?date)='+day+')\n':'';
-  var q='PREFIX wd:<http://www.wikidata.org/entity/>\n'
-    +'PREFIX wdt:<http://www.wikidata.org/prop/direct/>\n'
-    +'PREFIX xsd:<http://www.w3.org/2001/XMLSchema#>\n'
-    +'SELECT DISTINCT ?item ?itemLabel ?artist ?artistLabel ?date ?typeLabel WHERE{\n'
-    +'  VALUES ?type{'+RELEASE_TYPES+'}\n'
-    +'  ?item wdt:P31 ?type;\n'
-    +'        wdt:P577 ?date;\n'
-    +'        wdt:P136 ?genre.\n'
-    +'  VALUES ?genre{'+GENRE_IDS+'}\n'
-    +'  BIND(MONTH(?date) AS ?m)\n'
-    +'  '+mf+'\n'
-    +'  '+df
-    +'  FILTER(YEAR(?date)>=1960 && YEAR(?date)<=2010)\n'
-    +'  OPTIONAL{?item wdt:P175 ?artist}\n'
-    +'  SERVICE wikibase:label{bd:serviceParam wikibase:language "en,he".}\n'
-    +'}ORDER BY ?m DAY(?date) YEAR(?date)\nLIMIT 200';
-  var data=await wdQuery(q);
-  var seen=new Set();
-  return data.results.bindings.map(function(b){
-    var d=parseD(b.date?b.date.value:null);
-    if(!d)return null;
-    var title=b.itemLabel?b.itemLabel.value:'?';
-    var artist=b.artistLabel?b.artistLabel.value:(b.artist?b.artist.value.split('/').pop():'?');
-    if(/^Q\d+$/.test(title))return null;
-    var key=title+'||'+artist;
-    if(seen.has(key))return null;
-    seen.add(key);
-    var type=b.typeLabel?b.typeLabel.value:'Release';
-    var typeHe=type==='album'||type==='studio album'?'Album':type==='single'?'Single':type==='EP'||type==='extended play'?'EP':'Release';
-    return{title:title,artist:artist,year:d.year,month:d.month,day:d.day||1,type:typeHe};
-  }).filter(Boolean);
+  // Split into 2 parallel queries by genre group to avoid timeout
+  var genreGroups=[
+    'wd:Q183504 wd:Q1640239 wd:Q205560 wd:Q208909 wd:Q9778 wd:Q11399 wd:Q180377 wd:Q1570894',
+    'wd:Q838795 wd:Q182821 wd:Q11366 wd:Q9585 wd:Q41298 wd:Q37073 wd:Q1975196 wd:Q1194456'
+  ];
+  function makeQ(genres){
+    return 'SELECT DISTINCT ?itemLabel ?artistLabel ?date ?typeLabel WHERE{'
+      +'  ?item wdt:P577 ?date;wdt:P136 ?genre;wdt:P31 ?type.'
+      +'  VALUES ?genre{'+genres+'}'
+      +'  VALUES ?type{wd:Q208569 wd:Q134556 wd:Q169930}'
+      +'  BIND(MONTH(?date) AS ?m)'
+      +'  '+mf+df
+      +'  FILTER(YEAR(?date)>=1970 && YEAR(?date)<=2005)'
+      +'  OPTIONAL{?item wdt:P175 ?artist. ?artist rdfs:label ?artistLabel FILTER(LANG(?artistLabel)="en").}'
+      +'  SERVICE wikibase:label{bd:serviceParam wikibase:language "en".}'
+      +'}LIMIT 80';
+  }
+  var seen=new Set(), all=[];
+  var results=await Promise.allSettled(genreGroups.map(function(g){return wdQuery(makeQ(g));}));
+  results.forEach(function(r){
+    if(r.status!=='fulfilled')return;
+    (r.value.results.bindings||[]).forEach(function(b){
+      var d=parseD(b.date?b.date.value:null);
+      if(!d)return;
+      var title=b.itemLabel?b.itemLabel.value:'?';
+      if(!title||/^Q\d+$/.test(title))return;
+      var artist=b.artistLabel?b.artistLabel.value:'?';
+      var key=title+'||'+artist;
+      if(seen.has(key))return;seen.add(key);
+      var type=b.typeLabel?b.typeLabel.value:'Release';
+      var typeHe=type.toLowerCase().includes('single')?'Single':type.toLowerCase().includes('ep')?'EP':'Album';
+      all.push({title:title,artist:artist,year:d.year,month:d.month,day:d.day||1,type:typeHe});
+    });
+  });
+  return all;
 }
 
-// ימי הולדת מוזיקאים
 async function wdBdays(months,day){
   var mf='VALUES ?m {'+months.map(function(m){return'"'+m+'"^^xsd:integer';}).join(' ')+'}';
   var df=day?'FILTER(DAY(?bdate)='+day+')\n':'';
-  var genreIds='wd:Q183504 wd:Q1640239 wd:Q205560 wd:Q208909 wd:Q9778 wd:Q11399 wd:Q9585 wd:Q182821 wd:Q1338489 wd:Q4818508 wd:Q41298 wd:Q37073 wd:Q1570894 wd:Q838795 wd:Q37029 wd:Q180377 wd:Q11366 wd:Q484641';
+  var genreIds='wd:Q183504 wd:Q1640239 wd:Q205560 wd:Q208909 wd:Q9778 wd:Q11399 wd:Q180377 wd:Q1570894 wd:Q838795 wd:Q182821 wd:Q11366 wd:Q9585 wd:Q41298 wd:Q37073 wd:Q1975196 wd:Q1194456';
   var q='PREFIX wd:<http://www.wikidata.org/entity/>\n'
     +'PREFIX wdt:<http://www.wikidata.org/prop/direct/>\n'
     +'PREFIX xsd:<http://www.w3.org/2001/XMLSchema#>\n'
